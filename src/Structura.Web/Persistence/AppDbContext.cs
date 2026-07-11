@@ -79,12 +79,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.AssignedReviewer).WithMany().HasForeignKey(x => x.AssignedReviewerId)
                 .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.ReviewedBy).WithMany().HasForeignKey(x => x.ReviewedById)
+                .OnDelete(DeleteBehavior.SetNull);
             e.HasOne<ImportRun>().WithMany().HasForeignKey(x => x.ImportRunId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne<ProcessingRun>().WithMany().HasForeignKey(x => x.ProcessingRunId).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => new { x.ProjectId, x.ExternalId }).IsUnique();
             e.HasIndex(x => new { x.ProjectId, x.ProcessingStatusValue });
             e.HasIndex(x => new { x.ProjectId, x.ReviewStatusValue });
             e.HasIndex(x => new { x.ProjectId, x.DeliveryStatusValue });
+            // Delivery worker claim predicate.
+            e.HasIndex(x => new { x.ProjectId, x.ReviewStatusValue, x.DeliveryStatusValue });
             e.HasIndex(x => new { x.ProjectId, x.AssignedReviewerId, x.ReviewStatusValue });
             e.HasIndex(x => new { x.ProjectId, x.UpdatedAt });
             e.HasIndex(x => new { x.ProcessingRunId, x.ProcessingStatusValue });

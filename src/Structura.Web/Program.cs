@@ -70,6 +70,7 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<Structura.Web.Infrastructure.Ai.ExtractionPipeline>();
 builder.Services.AddHostedService<Structura.Web.Infrastructure.Import.ImportWorker>();
 builder.Services.AddHostedService<Structura.Web.Infrastructure.Processing.ProcessingWorker>();
+builder.Services.AddHostedService<Structura.Web.Infrastructure.Delivery.DeliveryWorker>();
 
 // ---------- Auth ----------
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
@@ -193,6 +194,9 @@ Structura.Web.Features.Records.RecordEndpoints.Map(app);
 Structura.Web.Features.Processing.RunEndpoints.Map(app);
 Structura.Web.Features.Assignments.AssignmentEndpoints.Map(app);
 Structura.Web.Features.Review.ReviewEndpoints.Map(app);
+Structura.Web.Features.Delivery.ExportEndpoints.Map(app);
+Structura.Web.Features.Delivery.OutputConnectorEndpoints.Map(app);
+Structura.Web.Features.Dashboard.DashboardEndpoints.Map(app);
 app.MapHub<Structura.Web.Infrastructure.Realtime.ProgressHub>("/hubs/progress");
 
 // Unknown API routes must return problem+json, not the SPA shell.

@@ -27,9 +27,11 @@ const { data: project, isPending, isError } = useQuery({
 })
 
 const tabs = [
+  { name: 'project-dashboard', label: 'Dashboard' },
   { name: 'project-records', label: 'Records' },
   { name: 'project-runs', label: 'Runs' },
   { name: 'project-review', label: 'Review' },
+  { name: 'project-output', label: 'Output' },
   { name: 'project-schema', label: 'Schema' },
   { name: 'project-ai', label: 'AI Settings' },
   { name: 'project-import', label: 'Import' },

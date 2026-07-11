@@ -21,7 +21,12 @@ const router = createRouter({
           path: 'projects/:id',
           component: () => import('../pages/admin/project/ProjectLayout.vue'),
           children: [
-            { path: '', redirect: { name: 'project-records' } },
+            { path: '', redirect: { name: 'project-dashboard' } },
+            {
+              path: 'dashboard',
+              name: 'project-dashboard',
+              component: () => import('../pages/admin/project/DashboardPage.vue'),
+            },
             {
               path: 'records',
               name: 'project-records',
@@ -36,6 +41,11 @@ const router = createRouter({
               path: 'review',
               name: 'project-review',
               component: () => import('../pages/admin/project/ReviewOpsPage.vue'),
+            },
+            {
+              path: 'output',
+              name: 'project-output',
+              component: () => import('../pages/admin/project/OutputPage.vue'),
             },
             {
               path: 'schema',

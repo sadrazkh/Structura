@@ -119,7 +119,7 @@ function formatDate(value: string) {
       <RouterLink
         v-for="project in projects"
         :key="project.id"
-        :to="{ name: 'project-records', params: { id: project.id } }"
+        :to="{ name: 'project-dashboard', params: { id: project.id } }"
         class="group rounded-xl border border-border bg-surface p-4 transition-colors hover:border-primary/50"
       >
         <div class="flex items-start justify-between gap-2">

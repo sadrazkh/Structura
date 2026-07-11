@@ -24,12 +24,16 @@ public class Record : IHasTimestamps
     /// <summary>Human working/approved copy (JSONB) — never mixes with AI output rows.</summary>
     public string? FinalOutput { get; set; }
     public Guid? ReviewedById { get; set; }
+    public User? ReviewedBy { get; set; }
     public DateTimeOffset? ReviewedAt { get; set; }
     public string? ReviewNote { get; set; }
 
     public int DeliveryAttempts { get; set; }
     public DateTimeOffset? DeliveredAt { get; set; }
     public string? DeliveryError { get; set; }
+    /// <summary>When a Pending delivery becomes eligible again after a retryable failure.</summary>
+    public DateTimeOffset? DeliveryNextRetryAt { get; set; }
+    public string? DeliveryExternalId { get; set; }
 
     public int Version { get; set; } = 1;
     public DateTimeOffset CreatedAt { get; set; }

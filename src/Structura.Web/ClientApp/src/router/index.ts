@@ -19,8 +19,35 @@ const router = createRouter({
         { path: 'projects', name: 'projects', component: () => import('../pages/admin/ProjectsPage.vue') },
         {
           path: 'projects/:id',
-          name: 'project-settings',
-          component: () => import('../pages/admin/ProjectSettingsPage.vue'),
+          component: () => import('../pages/admin/project/ProjectLayout.vue'),
+          children: [
+            { path: '', redirect: { name: 'project-records' } },
+            {
+              path: 'records',
+              name: 'project-records',
+              component: () => import('../pages/admin/project/RecordsPage.vue'),
+            },
+            {
+              path: 'schema',
+              name: 'project-schema',
+              component: () => import('../pages/admin/project/SchemaBuilderPage.vue'),
+            },
+            {
+              path: 'ai',
+              name: 'project-ai',
+              component: () => import('../pages/admin/project/AiSettingsPage.vue'),
+            },
+            {
+              path: 'import',
+              name: 'project-import',
+              component: () => import('../pages/admin/project/ImportPage.vue'),
+            },
+            {
+              path: 'settings',
+              name: 'project-settings',
+              component: () => import('../pages/admin/project/ProjectSettingsPage.vue'),
+            },
+          ],
         },
         {
           path: 'users',

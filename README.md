@@ -4,7 +4,10 @@ Admin-configured, AI-processed, human-reviewed text extraction:
 
 > **Admin defines the form, AI processes records, reviewers verify results, and the system exports approved data.**
 
-Full specification lives in [`docs/`](docs/README.md). Implementation progress follows the milestones in [`docs/08-milestones.md`](docs/08-milestones.md) — currently **Milestone 1 (Foundation)** is implemented: authentication, user management, projects & members, running in Docker.
+Full specification lives in [`docs/`](docs/README.md). Implementation progress follows the milestones in [`docs/08-milestones.md`](docs/08-milestones.md) — implemented so far:
+
+- **M1 — Foundation:** authentication (JWT + refresh rotation, lockout, forced password change), user management, projects & members, Docker setup.
+- **M2 — Configuration & data in:** dynamic schema builder (8 field types, versioned), AI settings (OpenRouter/NVIDIA, encrypted keys, real test connection), SSRF-hardened outbound HTTP, streaming Excel/CSV import (dedup, row errors, cancel, restart-resume, live progress via SignalR), manual input, API input connector, records browser (filters, keyset paging).
 
 ## Stack
 

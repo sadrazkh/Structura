@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Threading.RateLimiting;
 using FluentValidation;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
@@ -41,6 +42,33 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) => options
     .UseSnakeCaseNamingConvention()
     .AddInterceptors(sp.GetRequiredService<TimestampInterceptor>()));
 
+// ---------- Data directory, secrets, outbound HTTP ----------
+var dataDir = builder.Configuration["DATA_DIR"] ?? Path.Combine(AppContext.BaseDirectory, "data");
+Directory.CreateDirectory(Path.Combine(dataDir, "keys"));
+builder.Services.AddDataProtection()
+    .SetApplicationName("Structura")
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataDir, "keys")));
+builder.Services.AddSingleton<Structura.Web.Infrastructure.Secrets.ISecretProtector,
+    Structura.Web.Infrastructure.Secrets.SecretProtector>();
+builder.Services.AddSingleton<Structura.Web.Infrastructure.Http.IDnsResolver,
+    Structura.Web.Infrastructure.Http.SystemDnsResolver>();
+builder.Services.AddSingleton(new Structura.Web.Infrastructure.Http.SafeHttpOptions
+{
+    AllowInsecureHttp = builder.Configuration.GetValue<bool>("ALLOW_INSECURE_HTTP"),
+    AllowPrivateAiEndpoints = builder.Configuration.GetValue<bool>("ALLOW_PRIVATE_AI_ENDPOINTS"),
+    AllowPrivateConnectorTargets = builder.Configuration.GetValue<bool>("ALLOW_PRIVATE_CONNECTOR_TARGETS"),
+    OutboundProxyUrl = builder.Configuration["OUTBOUND_PROXY_URL"],
+});
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 60 * 1024 * 1024);
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+    options.MultipartBodyLengthLimit = 55 * 1024 * 1024);
+builder.Services.AddSingleton<Structura.Web.Infrastructure.Http.SafeHttpClientFactory>();
+builder.Services.AddSingleton<Structura.Web.Infrastructure.Ai.OpenAiCompatibleClient>();
+
+// ---------- Background workers & realtime ----------
+builder.Services.AddSignalR();
+builder.Services.AddHostedService<Structura.Web.Infrastructure.Import.ImportWorker>();
+
 // ---------- Auth ----------
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddSingleton<JwtTokenService>();
@@ -67,6 +95,17 @@ builder.Services
         };
         options.Events = new JwtBearerEvents
         {
+            // SignalR websockets cannot send Authorization headers; the token arrives as a query param.
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken)
+                    && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            },
             OnTokenValidated = async context =>
             {
                 var sub = context.Principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
@@ -144,6 +183,12 @@ app.MapGet("/api/health", async (AppDbContext db, CancellationToken ct) =>
 AuthEndpoints.Map(app);
 UserEndpoints.Map(app);
 ProjectEndpoints.Map(app);
+Structura.Web.Features.Schema.SchemaEndpoints.Map(app);
+Structura.Web.Features.AiSettings.AiSettingsEndpoints.Map(app);
+Structura.Web.Features.Imports.ImportEndpoints.Map(app);
+Structura.Web.Features.Imports.ApiInputEndpoints.Map(app);
+Structura.Web.Features.Records.RecordEndpoints.Map(app);
+app.MapHub<Structura.Web.Infrastructure.Realtime.ProgressHub>("/hubs/progress");
 
 // Unknown API routes must return problem+json, not the SPA shell.
 app.MapFallback("/api/{**path}", () => { throw new NotFoundException("Endpoint"); });

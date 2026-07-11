@@ -10,6 +10,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+    public DbSet<Record> Records => Set<Record>();
+    public DbSet<ImportRun> ImportRuns => Set<ImportRun>();
+    public DbSet<ProcessingRun> ProcessingRuns => Set<ProcessingRun>();
+    public DbSet<ExtractionResult> ExtractionResults => Set<ExtractionResult>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -61,6 +65,82 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.HasKey(x => x.Key);
             e.Property(x => x.Key).HasMaxLength(100);
+        });
+
+        b.Entity<Record>(e =>
+        {
+            e.Property(x => x.ExternalId).HasMaxLength(256).IsRequired();
+            e.Property(x => x.Text).IsRequired();
+            e.Property(x => x.ProcessingStatusValue).HasColumnName("processing_status").HasMaxLength(20);
+            e.Property(x => x.ReviewStatusValue).HasColumnName("review_status").HasMaxLength(30);
+            e.Property(x => x.DeliveryStatusValue).HasColumnName("delivery_status").HasMaxLength(20);
+            e.Property(x => x.FinalOutput).HasColumnType("jsonb");
+            e.Property(x => x.Version).IsConcurrencyToken();
+            e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.AssignedReviewer).WithMany().HasForeignKey(x => x.AssignedReviewerId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<ImportRun>().WithMany().HasForeignKey(x => x.ImportRunId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<ProcessingRun>().WithMany().HasForeignKey(x => x.ProcessingRunId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.ProjectId, x.ExternalId }).IsUnique();
+            e.HasIndex(x => new { x.ProjectId, x.ProcessingStatusValue });
+            e.HasIndex(x => new { x.ProjectId, x.ReviewStatusValue });
+            e.HasIndex(x => new { x.ProjectId, x.DeliveryStatusValue });
+            e.HasIndex(x => new { x.ProjectId, x.AssignedReviewerId, x.ReviewStatusValue });
+            e.HasIndex(x => new { x.ProjectId, x.UpdatedAt });
+            e.HasIndex(x => new { x.ProcessingRunId, x.ProcessingStatusValue });
+            e.ToTable(t =>
+            {
+                t.HasCheckConstraint("ck_records_processing_status",
+                    "processing_status IN ('Pending','Processing','Completed','Failed')");
+                t.HasCheckConstraint("ck_records_review_status",
+                    "review_status IN ('Unassigned','Assigned','InReview','Approved','Rejected','ReprocessRequested')");
+                t.HasCheckConstraint("ck_records_delivery_status",
+                    "delivery_status IN ('Pending','Delivered','Failed')");
+            });
+        });
+
+        b.Entity<ImportRun>(e =>
+        {
+            e.Property(x => x.Source).HasMaxLength(10);
+            e.Property(x => x.Status).HasMaxLength(30);
+            e.Property(x => x.FileName).HasMaxLength(300);
+            e.Property(x => x.FilePath).HasMaxLength(500);
+            e.Property(x => x.Mapping).HasColumnType("jsonb");
+            e.Property(x => x.Errors).HasColumnType("jsonb");
+            e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.ProjectId, x.CreatedAt });
+            e.ToTable(t =>
+            {
+                t.HasCheckConstraint("ck_import_runs_source", "source IN ('Excel','Csv','Manual','Api')");
+                t.HasCheckConstraint("ck_import_runs_status",
+                    "status IN ('AwaitingMapping','Running','Completed','CompletedWithErrors','Failed','Cancelled')");
+            });
+        });
+
+        b.Entity<ProcessingRun>(e =>
+        {
+            e.Property(x => x.Status).HasMaxLength(30);
+            e.Property(x => x.SchemaSnapshot).HasColumnType("jsonb");
+            e.Property(x => x.PromptSnapshot).HasColumnType("jsonb");
+            e.Property(x => x.Model).HasMaxLength(200);
+            e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.ProjectId, x.CreatedAt });
+            e.HasIndex(x => x.Status).HasFilter("status = 'Running'");
+            e.ToTable(t => t.HasCheckConstraint("ck_processing_runs_status",
+                "status IN ('Running','Completed','CompletedWithErrors','Cancelled','Failed')"));
+        });
+
+        b.Entity<ExtractionResult>(e =>
+        {
+            e.Property(x => x.Status).HasMaxLength(20);
+            e.Property(x => x.Model).HasMaxLength(200);
+            e.Property(x => x.Output).HasColumnType("jsonb");
+            e.HasOne(x => x.Record).WithMany().HasForeignKey(x => x.RecordId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<ProcessingRun>().WithMany().HasForeignKey(x => x.RunId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.RecordId, x.CreatedAt });
+            e.HasIndex(x => x.RunId);
+            e.ToTable(t => t.HasCheckConstraint("ck_extraction_results_status",
+                "status IN ('Succeeded','Failed')"));
         });
     }
 }

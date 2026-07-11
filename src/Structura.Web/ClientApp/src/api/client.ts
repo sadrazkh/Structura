@@ -74,3 +74,25 @@ export async function api<T = void>(path: string, options: RequestOptions = {}):
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }
+
+/** Multipart file upload with the same auth/refresh/problem handling as api(). */
+export async function apiUpload<T>(path: string, file: File, fieldName = 'file'): Promise<T> {
+  const store = useAuthStore()
+  const doFetch = () => {
+    const form = new FormData()
+    form.append(fieldName, file)
+    return fetch(path, {
+      method: 'POST',
+      headers: store.accessToken ? { Authorization: `Bearer ${store.accessToken}` } : {},
+      body: form,
+    })
+  }
+
+  let response = await doFetch()
+  if (response.status === 401 && store.refreshToken) {
+    const refreshed = await store.tryRefresh()
+    if (refreshed) response = await doFetch()
+  }
+  if (!response.ok) throw await parseError(response)
+  return (await response.json()) as T
+}

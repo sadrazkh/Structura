@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@microsoft/signalr": "^10.0.0",
     "@tailwindcss/vite": "^4.3.2",
     "@tanstack/vue-query": "^5.101.2",
     "pinia": "^3.0.4",

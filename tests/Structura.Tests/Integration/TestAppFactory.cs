@@ -83,6 +83,12 @@ public sealed class TestAppFactory : WebApplicationFactory<Program>, IAsyncLifet
         builder.UseSetting("BOOTSTRAP_ADMIN_PASSWORD", AdminBootstrapPassword);
         builder.UseSetting("RateLimiting:LoginPermitLimit", "10000");
         builder.UseSetting("Serilog:MinimumLevel:Default", "Warning");
+        // Functional tests target local WireMock endpoints; SSRF blocking itself is
+        // covered by the SafeHttp unit-test matrix with these flags off.
+        builder.UseSetting("ALLOW_INSECURE_HTTP", "true");
+        builder.UseSetting("ALLOW_PRIVATE_AI_ENDPOINTS", "true");
+        builder.UseSetting("ALLOW_PRIVATE_CONNECTOR_TARGETS", "true");
+        builder.UseSetting("DATA_DIR", Path.Combine(Path.GetTempPath(), $"structura-tests-{Guid.NewGuid():N}"));
     }
 
     public new async Task DisposeAsync()

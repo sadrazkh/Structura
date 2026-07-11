@@ -33,6 +33,11 @@ const router = createRouter({
               component: () => import('../pages/admin/project/RunsPage.vue'),
             },
             {
+              path: 'review',
+              name: 'project-review',
+              component: () => import('../pages/admin/project/ReviewOpsPage.vue'),
+            },
+            {
               path: 'schema',
               name: 'project-schema',
               component: () => import('../pages/admin/project/SchemaBuilderPage.vue'),
@@ -66,7 +71,19 @@ const router = createRouter({
       path: '/review',
       component: () => import('../components/AppShell.vue'),
       children: [
-        { path: '', name: 'review-home', component: () => import('../pages/review/ReviewHomePage.vue') },
+        { path: '', name: 'review-home', component: () => import('../pages/review/TasksPage.vue') },
+        {
+          path: ':projectId/list',
+          name: 'review-list',
+          component: () => import('../pages/review/QueueListPage.vue'),
+        },
+        {
+          path: ':projectId/record/:recordId',
+          name: 'review-focus',
+          component: () => import('../pages/review/FocusReviewPage.vue'),
+        },
+        { path: 'progress', name: 'review-progress', component: () => import('../pages/review/ProgressPage.vue') },
+        { path: 'settings', name: 'review-settings', component: () => import('../pages/review/ReviewerSettingsPage.vue') },
       ],
     },
     { path: '/', redirect: () => ({ name: 'projects' }) },

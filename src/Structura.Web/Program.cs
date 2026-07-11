@@ -191,6 +191,8 @@ Structura.Web.Features.Imports.ImportEndpoints.Map(app);
 Structura.Web.Features.Imports.ApiInputEndpoints.Map(app);
 Structura.Web.Features.Records.RecordEndpoints.Map(app);
 Structura.Web.Features.Processing.RunEndpoints.Map(app);
+Structura.Web.Features.Assignments.AssignmentEndpoints.Map(app);
+Structura.Web.Features.Review.ReviewEndpoints.Map(app);
 app.MapHub<Structura.Web.Infrastructure.Realtime.ProgressHub>("/hubs/progress");
 
 // Unknown API routes must return problem+json, not the SPA shell.

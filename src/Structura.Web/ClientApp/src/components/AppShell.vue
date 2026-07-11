@@ -10,7 +10,11 @@ const router = useRouter()
 
 const navItems = computed(() => {
   if (auth.isReviewer) {
-    return [{ label: 'My Tasks', to: { name: 'review-home' }, icon: '🗂' }]
+    return [
+      { label: 'My Tasks', to: { name: 'review-home' }, icon: '🗂' },
+      { label: 'Progress', to: { name: 'review-progress' }, icon: '📈' },
+      { label: 'Settings', to: { name: 'review-settings' }, icon: '⚙️' },
+    ]
   }
   const items = [{ label: 'Projects', to: { name: 'projects' }, icon: '📁' }]
   if (auth.isAdministrator) items.push({ label: 'Users', to: { name: 'users' }, icon: '👥' })

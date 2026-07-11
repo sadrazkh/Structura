@@ -1,0 +1,6 @@
+# PUBLIC_HOST=localhost → Caddy issues a local self-signed certificate (fine for testing).
+# PUBLIC_HOST=your.domain.com → automatic Let's Encrypt certificate (ports 80/443 must be reachable).
+{$PUBLIC_HOST} {
+	reverse_proxy app:8080
+	encode gzip
+}

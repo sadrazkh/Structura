@@ -1,0 +1,17 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Frontend
+node_modules/
+src/Structura.Web/wwwroot/
+
+# Local data & secrets
+.env
+/data/
+*.local.json
+
+# Test artifacts
+TestResults/

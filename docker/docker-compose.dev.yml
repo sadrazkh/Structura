@@ -1,0 +1,18 @@
+# Development: PostgreSQL only. Run the backend with `dotnet watch` and the SPA with `npm run dev`.
+name: structura-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: structura
+      POSTGRES_USER: structura
+      POSTGRES_PASSWORD: structura
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+
+volumes:
+  pgdata-dev:

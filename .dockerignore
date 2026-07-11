@@ -1,0 +1,9 @@
+**/bin
+**/obj
+**/node_modules
+**/.git
+**/wwwroot
+**/TestResults
+docs
+docs-archive-enterprise
+.env

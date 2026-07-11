@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { api } from '../../../api/client'
+import { api, ApiError } from '../../../api/client'
 import { useToastStore } from '../../../stores/toast'
 import { STATUS_BADGE, type RecordListItem } from '../../../api/types'
 import BaseButton from '../../../components/ui/BaseButton.vue'
@@ -116,7 +117,7 @@ const countsQuery = useQuery({
 const totalCount = computed(() =>
   (countsQuery.data.value?.processing ?? []).reduce((sum, g) => sum + g.count, 0))
 
-// ---------- Selection + delete ----------
+// ---------- Selection + bulk actions ----------
 const selection = ref(new Set<string>())
 function toggle(id: string, checked: boolean) {
   const next = new Set(selection.value)
@@ -124,6 +125,25 @@ function toggle(id: string, checked: boolean) {
   else next.delete(id)
   selection.value = next
 }
+
+const router = useRouter()
+const processMutation = useMutation({
+  mutationFn: () =>
+    api<{ total: number }>(`/api/projects/${projectId}/runs`, {
+      method: 'POST',
+      body: { scope: 'selected', recordIds: [...selection.value] },
+    }),
+  onSuccess: (run) => {
+    toast.success(`Processing started — ${run.total} record(s).`)
+    selection.value = new Set()
+    queryClient.invalidateQueries({ queryKey: ['project', projectId] })
+    router.push({ name: 'project-runs', params: { id: projectId } })
+  },
+  onError: (error) => {
+    if (error instanceof ApiError && error.detail) toast.error(error.detail)
+    else toast.error('Could not start processing.')
+  },
+})
 const confirmDelete = ref(false)
 const deleteMutation = useMutation({
   mutationFn: () =>
@@ -179,6 +199,14 @@ const reviewOptions = [
       class="flex items-center gap-3 rounded-lg border border-primary/40 bg-primary-soft px-3 py-2"
     >
       <span class="text-sm font-medium text-primary">{{ selection.size }} selected</span>
+      <BaseButton
+        v-if="!isArchived"
+        class="!py-1"
+        :loading="processMutation.isPending.value"
+        @click="processMutation.mutate()"
+      >
+        ▶ Process
+      </BaseButton>
       <BaseButton v-if="!isArchived" variant="danger" class="!py-1" @click="confirmDelete = true">
         Delete
       </BaseButton>

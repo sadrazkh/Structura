@@ -26,8 +26,12 @@ const hasActiveRun = ref(false)
 const runsQuery = useQuery({
   queryKey: ['project', projectId, 'imports'],
   queryFn: () => api<{ items: ImportRunSummary[] }>(`/api/projects/${projectId}/imports`),
-  // Polling fallback: only while a run is active and the SignalR socket is down.
-  refetchInterval: () => (hasActiveRun.value && !realtimeConnected.value ? 3000 : false),
+  // Polling fallback while a run is active and the SignalR socket is down.
+  // Reads fresh data straight from the query to avoid racing the watcher.
+  refetchInterval: (query) => {
+    const active = (query.state.data?.items ?? []).some((r) => r.status === 'Running')
+    return active && !realtimeConnected.value ? 3000 : false
+  },
 })
 watch(
   () => runsQuery.data.value,

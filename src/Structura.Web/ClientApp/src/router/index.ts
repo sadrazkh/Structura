@@ -28,6 +28,11 @@ const router = createRouter({
               component: () => import('../pages/admin/project/RecordsPage.vue'),
             },
             {
+              path: 'runs',
+              name: 'project-runs',
+              component: () => import('../pages/admin/project/RunsPage.vue'),
+            },
+            {
               path: 'schema',
               name: 'project-schema',
               component: () => import('../pages/admin/project/SchemaBuilderPage.vue'),

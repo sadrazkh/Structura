@@ -39,7 +39,9 @@ public sealed class OpenAiCompatibleClient(SafeHttpClientFactory safeHttp)
                 .Select(m => (JsonNode)new JsonObject { ["role"] = m.Role, ["content"] = m.Content })
                 .ToArray()),
         };
-        if (responseFormat is not null) payload["response_format"] = responseFormat;
+        // DeepClone: the caller may reuse the same node across retries, and a JsonNode
+        // can only have one parent.
+        if (responseFormat is not null) payload["response_format"] = responseFormat.DeepClone();
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url)
         {

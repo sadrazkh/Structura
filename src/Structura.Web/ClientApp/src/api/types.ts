@@ -49,6 +49,21 @@ export interface ImportRunSummary {
   finishedAt: string | null
 }
 
+export interface RunSummary {
+  id: string
+  status: 'Running' | 'Completed' | 'CompletedWithErrors' | 'Cancelled' | 'Failed'
+  model: string
+  total: number
+  succeeded: number
+  failed: number
+  inputTokens: number
+  outputTokens: number
+  cancelRequested: boolean
+  startedAt: string | null
+  finishedAt: string | null
+  createdAt: string
+}
+
 export const STATUS_BADGE: Record<string, 'neutral' | 'success' | 'danger' | 'warning' | 'info' | 'primary'> = {
   Pending: 'neutral',
   Processing: 'info',

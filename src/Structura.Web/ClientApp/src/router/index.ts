@@ -5,6 +5,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/login', name: 'login', component: () => import('../pages/LoginPage.vue'), meta: { public: true } },
+    { path: '/tg', name: 'telegram-entry', component: () => import('../pages/TelegramEntryPage.vue'), meta: { public: true } },
     {
       path: '/change-password',
       name: 'change-password',
@@ -73,6 +74,12 @@ const router = createRouter({
           path: 'users',
           name: 'users',
           component: () => import('../pages/admin/UsersPage.vue'),
+          meta: { adminOnly: true },
+        },
+        {
+          path: 'settings',
+          name: 'admin-settings',
+          component: () => import('../pages/admin/SettingsPage.vue'),
           meta: { adminOnly: true },
         },
       ],

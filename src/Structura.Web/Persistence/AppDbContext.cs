@@ -14,6 +14,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ImportRun> ImportRuns => Set<ImportRun>();
     public DbSet<ProcessingRun> ProcessingRuns => Set<ProcessingRun>();
     public DbSet<ExtractionResult> ExtractionResults => Set<ExtractionResult>();
+    public DbSet<TelegramLink> TelegramLinks => Set<TelegramLink>();
+    public DbSet<TelegramLinkCode> TelegramLinkCodes => Set<TelegramLinkCode>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -65,6 +67,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.HasKey(x => x.Key);
             e.Property(x => x.Key).HasMaxLength(100);
+        });
+
+        b.Entity<TelegramLink>(e =>
+        {
+            e.Property(x => x.Status).HasMaxLength(20);
+            e.Property(x => x.TelegramUsername).HasMaxLength(64);
+            e.HasIndex(x => x.UserId).IsUnique();
+            e.HasIndex(x => x.TelegramUserId).IsUnique();
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.ToTable(t => t.HasCheckConstraint("ck_telegram_links_status", "status IN ('Active','Revoked')"));
+        });
+
+        b.Entity<TelegramLinkCode>(e =>
+        {
+            e.Property(x => x.CodeHash).HasMaxLength(128).IsRequired();
+            e.HasIndex(x => x.CodeHash).IsUnique();
+            e.HasIndex(x => x.UserId);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<Record>(e =>

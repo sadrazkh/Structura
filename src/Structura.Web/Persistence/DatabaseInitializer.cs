@@ -24,6 +24,7 @@ public static class DatabaseInitializer
 
         await MigrateWithAdvisoryLockAsync(db, logger, ct);
         await SeedBootstrapAdminAsync(scope.ServiceProvider, db, logger, ct);
+        await DemoSeeder.SeedAsync(scope.ServiceProvider, db, logger, ct);
     }
 
     private static async Task MigrateWithAdvisoryLockAsync(AppDbContext db, ILogger logger, CancellationToken ct)

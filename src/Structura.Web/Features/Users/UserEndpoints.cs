@@ -61,6 +61,16 @@ public static class UserEndpoints
         group.MapPost("/{id:guid}/reset-password", ResetPasswordAsync).Validate<ResetPasswordRequest>();
         group.MapPost("/{id:guid}/deactivate", DeactivateAsync);
         group.MapPost("/{id:guid}/reactivate", ReactivateAsync);
+        group.MapPost("/{id:guid}/revoke-telegram", RevokeTelegramAsync);
+    }
+
+    private static async Task<IResult> RevokeTelegramAsync(
+        Guid id, AppDbContext db, Structura.Web.Infrastructure.Telegram.TelegramLinkService links,
+        ICurrentUser currentUser, CancellationToken ct)
+    {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id, ct) ?? throw new NotFoundException("User");
+        await links.UnlinkAsync(user.Id, currentUser.Id, ct);
+        return Results.NoContent();
     }
 
     private static async Task<object> ListAsync(AppDbContext db, string? search, CancellationToken ct)

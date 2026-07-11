@@ -40,7 +40,7 @@ public static class AssignmentEndpoints
 
     private static async Task<object> AssignAsync(
         Guid projectId, AssignRequest request, ProjectAccessService access,
-        AppDbContext db, CancellationToken ct)
+        AppDbContext db, Infrastructure.Telegram.TelegramNotifier notifier, CancellationToken ct)
     {
         var project = await access.EnsureCanManageAsync(projectId, ct);
         ProjectAccessService.EnsureNotArchived(project);
@@ -60,6 +60,7 @@ public static class AssignmentEndpoints
         var assigned = 0;
         var reviewerIndex = 0;
         var now = DateTimeOffset.UtcNow;
+        var assignedPerReviewer = new Dictionary<Guid, int>();
         foreach (var record in records)
         {
             string? reason = record switch
@@ -78,14 +79,19 @@ public static class AssignmentEndpoints
             }
 
             // Round-robin keeps the distribution even in "distribute" mode.
-            record.AssignedReviewerId = reviewerIds[reviewerIndex % reviewerIds.Count];
+            var reviewerId = reviewerIds[reviewerIndex % reviewerIds.Count];
+            record.AssignedReviewerId = reviewerId;
             reviewerIndex++;
             record.AssignedAt = now;
             record.ReviewStatusValue = ReviewStatus.Assigned;
             record.Version++;
             assigned++;
+            assignedPerReviewer[reviewerId] = assignedPerReviewer.GetValueOrDefault(reviewerId) + 1;
         }
         await db.SaveChangesAsync(ct);
+
+        foreach (var (reviewerId, count) in assignedPerReviewer)
+            notifier.NotifyAssignment(reviewerId, project.Name, count);
 
         return new { assigned, skipped = results.Count, results };
     }

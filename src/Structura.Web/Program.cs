@@ -71,6 +71,18 @@ builder.Services.AddSingleton<Structura.Web.Infrastructure.Ai.ExtractionPipeline
 builder.Services.AddHostedService<Structura.Web.Infrastructure.Import.ImportWorker>();
 builder.Services.AddHostedService<Structura.Web.Infrastructure.Processing.ProcessingWorker>();
 builder.Services.AddHostedService<Structura.Web.Infrastructure.Delivery.DeliveryWorker>();
+builder.Services.AddHostedService<Structura.Web.Infrastructure.Telegram.TelegramPollingService>();
+
+// ---------- Settings & Telegram ----------
+builder.Services.AddScoped<Structura.Web.Infrastructure.Settings.AppSettingsService>();
+builder.Services.AddSingleton(new Structura.Web.Infrastructure.Telegram.TelegramApiOptions
+{
+    BaseUrl = builder.Configuration["TELEGRAM_API_BASE"] ?? "https://api.telegram.org",
+});
+builder.Services.AddSingleton<Structura.Web.Infrastructure.Telegram.TelegramApiClient>();
+builder.Services.AddScoped<Structura.Web.Infrastructure.Telegram.TelegramLinkService>();
+builder.Services.AddScoped<Structura.Web.Infrastructure.Telegram.TelegramUpdateHandler>();
+builder.Services.AddSingleton<Structura.Web.Infrastructure.Telegram.TelegramNotifier>();
 
 // ---------- Auth ----------
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
@@ -197,6 +209,8 @@ Structura.Web.Features.Review.ReviewEndpoints.Map(app);
 Structura.Web.Features.Delivery.ExportEndpoints.Map(app);
 Structura.Web.Features.Delivery.OutputConnectorEndpoints.Map(app);
 Structura.Web.Features.Dashboard.DashboardEndpoints.Map(app);
+Structura.Web.Features.Telegram.TelegramEndpoints.Map(app);
+Structura.Web.Features.Settings.SettingsEndpoints.Map(app);
 app.MapHub<Structura.Web.Infrastructure.Realtime.ProgressHub>("/hubs/progress");
 
 // Unknown API routes must return problem+json, not the SPA shell.

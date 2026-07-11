@@ -17,7 +17,10 @@ const navItems = computed(() => {
     ]
   }
   const items = [{ label: 'Projects', to: { name: 'projects' }, icon: '📁' }]
-  if (auth.isAdministrator) items.push({ label: 'Users', to: { name: 'users' }, icon: '👥' })
+  if (auth.isAdministrator) {
+    items.push({ label: 'Users', to: { name: 'users' }, icon: '👥' })
+    items.push({ label: 'Settings', to: { name: 'admin-settings' }, icon: '⚙️' })
+  }
   return items
 })
 

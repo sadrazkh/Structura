@@ -18,6 +18,7 @@ public sealed class ProcessingWorker(
     IServiceScopeFactory scopeFactory,
     ExtractionPipeline pipeline,
     IHubContext<ProgressHub> hub,
+    Structura.Web.Infrastructure.Telegram.TelegramNotifier notifier,
     ILogger<ProcessingWorker> logger) : BackgroundService
 {
     private DateTimeOffset _lastBroadcast = DateTimeOffset.MinValue;
@@ -87,16 +88,18 @@ public sealed class ProcessingWorker(
         string apiKey;
         SchemaDocument schema;
         PromptConfigDocument prompt;
+        string projectName;
         using (var scope = scopeFactory.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var secrets = scope.ServiceProvider.GetRequiredService<ISecretProtector>();
             var run = await db.ProcessingRuns.AsNoTracking().FirstAsync(r => r.Id == runId, ct);
             var project = await db.Projects.AsNoTracking().FirstAsync(p => p.Id == projectId, ct);
+            projectName = project.Name;
             var liveConfig = AiConfigDocument.ParseOrNull(project.AiConfig);
             if (liveConfig?.ApiKeyProtected is null)
             {
-                await FinalizeRunAsync(runId, projectId, RunStatus.Failed, ct);
+                await FinalizeRunAsync(runId, projectId, projectName, RunStatus.Failed, ct);
                 logger.LogError("Run {RunId} failed: AI configuration is missing.", runId);
                 return;
             }
@@ -124,7 +127,7 @@ public sealed class ProcessingWorker(
             if (cancelRequested)
             {
                 await Task.WhenAll(inFlight);
-                await FinalizeRunAsync(runId, projectId, RunStatus.Cancelled, ct);
+                await FinalizeRunAsync(runId, projectId, projectName, RunStatus.Cancelled, ct);
                 logger.LogInformation("Processing run {RunId}: cancelled", runId);
                 return;
             }
@@ -136,7 +139,7 @@ public sealed class ProcessingWorker(
                 if (inFlight.Count == 0)
                 {
                     var finalStatus = await DetermineFinalStatusAsync(runId, ct);
-                    await FinalizeRunAsync(runId, projectId, finalStatus, ct);
+                    await FinalizeRunAsync(runId, projectId, projectName, finalStatus, ct);
                     logger.LogInformation("Processing run {RunId}: {Status}", runId, finalStatus);
                     return;
                 }
@@ -151,7 +154,7 @@ public sealed class ProcessingWorker(
                 {
                     try
                     {
-                        await ProcessRecordAsync(runId, projectId, recordId, config, apiKey, schema, prompt, ct);
+                        await ProcessRecordAsync(runId, projectId, projectName, recordId, config, apiKey, schema, prompt, ct);
                     }
                     catch (Exception e) when (e is not OperationCanceledException)
                     {
@@ -185,7 +188,7 @@ public sealed class ProcessingWorker(
     }
 
     private async Task ProcessRecordAsync(
-        Guid runId, Guid projectId, Guid recordId,
+        Guid runId, Guid projectId, string projectName, Guid recordId,
         AiConfigDocument config, string apiKey, SchemaDocument schema, PromptConfigDocument prompt,
         CancellationToken ct)
     {
@@ -221,6 +224,7 @@ public sealed class ProcessingWorker(
 
             var record = await db.Records.FirstAsync(r => r.Id == recordId, ct);
             record.Version++;
+            Guid? reprocessReadyFor = null;
             if (attempt.Succeeded)
             {
                 record.ProcessingStatusValue = ProcessingStatus.Completed;
@@ -233,9 +237,15 @@ public sealed class ProcessingWorker(
                 if (record.ReviewStatusValue == ReviewStatus.ReprocessRequested)
                 {
                     // Returned records go back to the same reviewer when still assigned (docs/02 F7).
-                    record.ReviewStatusValue = record.AssignedReviewerId is not null
-                        ? ReviewStatus.Assigned
-                        : ReviewStatus.Unassigned;
+                    if (record.AssignedReviewerId is not null)
+                    {
+                        record.ReviewStatusValue = ReviewStatus.Assigned;
+                        reprocessReadyFor = record.AssignedReviewerId;
+                    }
+                    else
+                    {
+                        record.ReviewStatusValue = ReviewStatus.Unassigned;
+                    }
                 }
             }
             else
@@ -258,6 +268,9 @@ public sealed class ProcessingWorker(
                     .SetProperty(r => r.OutputTokens, r => r.OutputTokens + attempt.OutputTokens), ct);
 
             await transaction.CommitAsync(ct);
+
+            if (reprocessReadyFor is not null)
+                notifier.NotifyReprocessReady(reprocessReadyFor.Value, projectName);
         }
 
         await BroadcastProgressAsync(runId, projectId, force: false, CancellationToken.None);
@@ -285,7 +298,7 @@ public sealed class ProcessingWorker(
         return failed > 0 ? RunStatus.CompletedWithErrors : RunStatus.Completed;
     }
 
-    private async Task FinalizeRunAsync(Guid runId, Guid projectId, string status, CancellationToken ct)
+    private async Task FinalizeRunAsync(Guid runId, Guid projectId, string projectName, string status, CancellationToken ct)
     {
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -294,6 +307,15 @@ public sealed class ProcessingWorker(
                 .SetProperty(r => r.Status, status)
                 .SetProperty(r => r.FinishedAt, DateTimeOffset.UtcNow), ct);
         await BroadcastProgressAsync(runId, projectId, force: true, CancellationToken.None);
+
+        if (status is RunStatus.Completed or RunStatus.CompletedWithErrors)
+        {
+            var run = await db.ProcessingRuns.AsNoTracking()
+                .Where(r => r.Id == runId)
+                .Select(r => new { r.CreatedById, r.Succeeded, r.Failed })
+                .FirstAsync(ct);
+            notifier.NotifyRunFinished(run.CreatedById, projectName, run.Succeeded, run.Failed);
+        }
     }
 
     private async Task BroadcastProgressAsync(Guid runId, Guid projectId, bool force, CancellationToken ct)

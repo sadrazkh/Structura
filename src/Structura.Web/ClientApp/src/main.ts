@@ -4,6 +4,7 @@ import { VueQueryPlugin } from '@tanstack/vue-query'
 import App from './App.vue'
 import router from './router'
 import { useThemeStore } from './stores/theme'
+import { initPwa } from './pwa/usePwa'
 import './style.css'
 
 const app = createApp(App)
@@ -18,3 +19,5 @@ useThemeStore().apply()
 
 app.use(router)
 app.mount('#app')
+
+initPwa()

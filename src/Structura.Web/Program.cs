@@ -64,6 +64,7 @@ builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(optio
     options.MultipartBodyLengthLimit = 55 * 1024 * 1024);
 builder.Services.AddSingleton<Structura.Web.Infrastructure.Http.SafeHttpClientFactory>();
 builder.Services.AddSingleton<Structura.Web.Infrastructure.Ai.OpenAiCompatibleClient>();
+builder.Services.AddSingleton<Structura.Web.Infrastructure.Ai.SchemaGenerator>();
 
 // ---------- Background workers & realtime ----------
 builder.Services.AddSignalR();

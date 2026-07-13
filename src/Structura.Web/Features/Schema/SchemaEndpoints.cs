@@ -1,13 +1,27 @@
 using System.Text.Json;
 using FluentValidation;
 using Structura.Web.Domain;
+using Structura.Web.Infrastructure.Ai;
 using Structura.Web.Infrastructure.Auth;
+using Structura.Web.Infrastructure.Errors;
+using Structura.Web.Infrastructure.Secrets;
 using Structura.Web.Infrastructure.Validation;
 using Structura.Web.Persistence;
 
 namespace Structura.Web.Features.Schema;
 
 public sealed record UpdateSchemaRequest(List<FieldSpec> Fields);
+public sealed record GenerateSchemaRequest(string Description, string? SampleText);
+
+public sealed class GenerateSchemaRequestValidator : AbstractValidator<GenerateSchemaRequest>
+{
+    public GenerateSchemaRequestValidator()
+    {
+        RuleFor(x => x.Description).NotEmpty().WithMessage("Describe what you want to extract.")
+            .MaximumLength(4000);
+        RuleFor(x => x.SampleText).MaximumLength(20_000);
+    }
+}
 
 public sealed class UpdateSchemaRequestValidator : AbstractValidator<UpdateSchemaRequest>
 {
@@ -32,6 +46,37 @@ public static class SchemaEndpoints
         var group = app.MapGroup("/api/projects/{projectId:guid}/schema").RequireAuthorization();
         group.MapGet("/", GetAsync);
         group.MapPut("/", UpdateAsync).Validate<UpdateSchemaRequest>();
+        group.MapPost("/generate", GenerateAsync).Validate<GenerateSchemaRequest>();
+    }
+
+    private static async Task<object> GenerateAsync(
+        Guid projectId, GenerateSchemaRequest request, ProjectAccessService access, AppDbContext db,
+        ISecretProtector secrets, SchemaGenerator generator, CancellationToken ct)
+    {
+        var project = await access.EnsureCanManageAsync(projectId, ct);
+        ProjectAccessService.EnsureNotArchived(project);
+
+        var config = AiConfigDocument.ParseOrNull(project.AiConfig);
+        if (config?.ApiKeyProtected is null || string.IsNullOrWhiteSpace(config.Model))
+            throw new ConflictException("configuration_incomplete",
+                "Configure the AI provider (API key and model) in AI Settings before generating a schema.");
+
+        try
+        {
+            var generated = await generator.GenerateAsync(
+                config, secrets.Unprotect(config.ApiKeyProtected),
+                request.Description, request.SampleText, ct);
+            return new
+            {
+                fields = generated.Fields,
+                systemInstruction = generated.SystemInstruction,
+                extractionInstruction = generated.ExtractionInstruction,
+            };
+        }
+        catch (AiProviderException e)
+        {
+            throw new AppException(StatusCodes.Status502BadGateway, "provider_error", e.Message);
+        }
     }
 
     private static async Task<object> GetAsync(

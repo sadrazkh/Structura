@@ -14,6 +14,8 @@ public sealed record UpdateAiSettingsRequest(
     double Temperature, int MaxOutputTokens, int TimeoutSeconds, int Concurrency,
     string SystemInstruction, string ExtractionInstruction);
 
+public sealed record UpdatePromptRequest(string? SystemInstruction, string? ExtractionInstruction);
+
 public sealed class UpdateAiSettingsRequestValidator : AbstractValidator<UpdateAiSettingsRequest>
 {
     public UpdateAiSettingsRequestValidator()
@@ -40,6 +42,25 @@ public static class AiSettingsEndpoints
         group.MapGet("/", GetAsync);
         group.MapPut("/", UpdateAsync).Validate<UpdateAiSettingsRequest>();
         group.MapPost("/test", TestAsync);
+
+        // Prompt-only update (used by the AI schema generator to persist suggested instructions
+        // without touching the provider/key settings).
+        app.MapPut("/api/projects/{projectId:guid}/prompt", UpdatePromptAsync).RequireAuthorization();
+    }
+
+    private static async Task<IResult> UpdatePromptAsync(
+        Guid projectId, UpdatePromptRequest request, ProjectAccessService access,
+        AppDbContext db, CancellationToken ct)
+    {
+        var project = await access.EnsureCanManageAsync(projectId, ct);
+        ProjectAccessService.EnsureNotArchived(project);
+        project.PromptConfig = new PromptConfigDocument
+        {
+            SystemInstruction = (request.SystemInstruction ?? "").Trim(),
+            ExtractionInstruction = (request.ExtractionInstruction ?? "").Trim(),
+        }.ToJson();
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
     }
 
     private static async Task<object> GetAsync(

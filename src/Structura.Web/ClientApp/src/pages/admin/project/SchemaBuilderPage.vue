@@ -8,6 +8,7 @@ import { FIELD_TYPE_LABELS, type FieldSpec, type FieldType } from '../../../api/
 import BaseButton from '../../../components/ui/BaseButton.vue'
 import BaseInput from '../../../components/ui/BaseInput.vue'
 import BaseSelect from '../../../components/ui/BaseSelect.vue'
+import BaseDialog from '../../../components/ui/BaseDialog.vue'
 import EmptyState from '../../../components/ui/EmptyState.vue'
 import SkeletonRows from '../../../components/ui/SkeletonRows.vue'
 import DynamicForm from '../../../components/DynamicForm.vue'
@@ -140,15 +141,24 @@ function onTypeChange() {
 }
 
 const saveMutation = useMutation({
-  mutationFn: () =>
-    api<{ version: number; changed: boolean }>(`/api/projects/${projectId}/schema`, {
+  mutationFn: async () => {
+    const result = await api<{ version: number; changed: boolean }>(`/api/projects/${projectId}/schema`, {
       method: 'PUT',
       body: { fields: fields.value },
-    }),
+    })
+    // Persist AI-suggested instructions alongside the schema, if any are pending.
+    if (generatedPrompt.value) {
+      await api(`/api/projects/${projectId}/prompt`, { method: 'PUT', body: generatedPrompt.value })
+      queryClient.invalidateQueries({ queryKey: ['project', projectId, 'ai-config'] })
+    }
+    return result
+  },
   onSuccess: (result) => {
     dirty.value = false
     serverErrors.value = []
-    toast.success(result.changed ? `Schema saved — now at version ${result.version}.` : 'No changes to save.')
+    const promptNote = generatedPrompt.value ? ' AI instructions saved to AI Settings.' : ''
+    generatedPrompt.value = null
+    toast.success((result.changed ? `Schema saved — now at version ${result.version}.` : 'No changes to save.') + promptNote)
     queryClient.invalidateQueries({ queryKey: ['project', projectId] })
     queryClient.invalidateQueries({ queryKey: ['project', projectId, 'schema'] })
   },
@@ -159,6 +169,43 @@ const saveMutation = useMutation({
       )
     } else {
       toast.error('Could not save the schema.')
+    }
+  },
+})
+
+// ---------- AI schema generation ----------
+const generateOpen = ref(false)
+const genDescription = ref('')
+const genSample = ref('')
+const generatedPrompt = ref<{ systemInstruction: string; extractionInstruction: string } | null>(null)
+
+const generateMutation = useMutation({
+  mutationFn: () =>
+    api<{ fields: FieldSpec[]; systemInstruction: string; extractionInstruction: string }>(
+      `/api/projects/${projectId}/schema/generate`,
+      { method: 'POST', body: { description: genDescription.value.trim(), sampleText: genSample.value.trim() || null } },
+    ),
+  onSuccess: (result) => {
+    fields.value = result.fields.map((f, i) => ({ ...f, displayOrder: i }))
+    selectedIndex.value = fields.value.length ? 0 : null
+    generatedPrompt.value = {
+      systemInstruction: result.systemInstruction,
+      extractionInstruction: result.extractionInstruction,
+    }
+    dirty.value = true
+    serverErrors.value = []
+    generateOpen.value = false
+    toast.success(`Generated ${result.fields.length} field(s). Review, then Save Schema.`)
+  },
+  onError: (error) => {
+    if (error instanceof ApiError && error.code === 'configuration_incomplete') {
+      toast.error(error.detail ?? 'Configure AI Settings first.')
+    } else if (error instanceof ApiError && error.code === 'provider_error') {
+      toast.error(`AI could not generate a schema: ${error.detail}`)
+    } else if (error instanceof ApiError && error.fieldError('description')) {
+      toast.error(error.fieldError('description')!)
+    } else {
+      toast.error('Generation failed.')
     }
   },
 })
@@ -177,13 +224,25 @@ onBeforeRouteLeave(() => {
         Define the fields the AI must extract from each record's text.
         <span v-if="dirty" class="font-medium text-warning">Unsaved changes.</span>
       </p>
-      <BaseButton
-        :loading="saveMutation.isPending.value"
-        :disabled="isArchived || !dirty"
-        @click="saveMutation.mutate()"
-      >
-        Save Schema
-      </BaseButton>
+      <div class="flex gap-2">
+        <BaseButton variant="secondary" :disabled="isArchived" @click="generateOpen = true">
+          ✨ Generate with AI
+        </BaseButton>
+        <BaseButton
+          :loading="saveMutation.isPending.value"
+          :disabled="isArchived || !dirty"
+          @click="saveMutation.mutate()"
+        >
+          Save Schema
+        </BaseButton>
+      </div>
+    </div>
+
+    <div
+      v-if="generatedPrompt"
+      class="rounded-md border border-primary/40 bg-primary-soft px-3 py-2 text-sm text-primary"
+    >
+      ✨ AI also drafted the extraction instructions — they'll be saved to AI Settings when you Save Schema.
     </div>
 
     <div
@@ -327,5 +386,46 @@ onBeforeRouteLeave(() => {
         <pre v-else class="overflow-x-auto rounded-md bg-bg p-3 text-xs text-text">{{ jsonShape }}</pre>
       </section>
     </div>
+
+    <!-- Generate-with-AI dialog -->
+    <BaseDialog v-model="generateOpen" title="✨ Generate schema with AI">
+      <div class="flex flex-col gap-4">
+        <p class="text-sm text-muted">
+          Describe what you want to extract. The AI drafts the fields and extraction instructions
+          for you to review — you don't have to write them by hand.
+        </p>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-text">What do you want to extract? <span class="text-danger">*</span></label>
+          <textarea
+            v-model="genDescription"
+            rows="3"
+            dir="auto"
+            placeholder="e.g. Structured details from traffic collision reports: people involved, incident type, date, location, whether urgent, and a short description."
+            class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
+          />
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-text">Sample record (optional)</label>
+          <textarea
+            v-model="genSample"
+            rows="4"
+            dir="auto"
+            placeholder="Paste one example record's text to improve the result (optional)."
+            class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text"
+          />
+        </div>
+        <p class="text-xs text-muted">Uses this project's configured AI provider. Existing fields will be replaced.</p>
+      </div>
+      <template #footer>
+        <BaseButton variant="secondary" @click="generateOpen = false">Cancel</BaseButton>
+        <BaseButton
+          :loading="generateMutation.isPending.value"
+          :disabled="!genDescription.trim()"
+          @click="generateMutation.mutate()"
+        >
+          Generate
+        </BaseButton>
+      </template>
+    </BaseDialog>
   </div>
 </template>

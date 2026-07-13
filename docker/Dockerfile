@@ -26,6 +26,9 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=build /app/publish .
 ENV ASPNETCORE_URLS=http://+:8080
+# Persist Data Protection keys, uploads and exports here. Map this to a persistent
+# volume (Docker) or a CapRover "Persistent Directory" so secrets survive redeploys.
+ENV DATA_DIR=/data
 USER structura
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \

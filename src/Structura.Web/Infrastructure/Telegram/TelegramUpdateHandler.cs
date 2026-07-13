@@ -12,8 +12,7 @@ public sealed class TelegramUpdateHandler(
     AppDbContext db,
     TelegramApiClient api,
     TelegramLinkService linkService,
-    AppSettingsService settings,
-    ILogger<TelegramUpdateHandler> logger)
+    AppSettingsService settings)
 {
     public async Task HandleMessageAsync(long chatId, long fromId, string? username, string text, CancellationToken ct)
     {

@@ -113,8 +113,10 @@ public class TelegramTests(TestAppFactory factory) : IDisposable
         var after = await reviewer.GetFromJsonAsync<JsonElement>("/api/telegram/link", ApiClient.Json);
         after.GetProperty("linked").GetBoolean().Should().BeTrue();
 
-        // The bot replied (a sendMessage hit the Telegram API).
-        _mock.LogEntries.Should().Contain(e => e.RequestMessage.Path.Contains("/sendMessage"));
+        // The bot replied (a sendMessage hit the Telegram API) — sent right after linking in the
+        // same background task, so wait for it rather than asserting on an exact instant.
+        (await EventuallyAsync(() =>
+            _mock.LogEntries.Any(e => e.RequestMessage.Path.Contains("/sendMessage")))).Should().BeTrue();
     }
 
     [Fact]

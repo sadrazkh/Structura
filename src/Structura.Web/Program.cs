@@ -164,9 +164,22 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
 
+// Behind a reverse proxy (CapRover / Caddy / nginx): honor X-Forwarded-Proto/For so
+// Request.Scheme and the client IP (rate limiting) reflect the real external request.
+builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+        Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+        | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto;
+    // Proxy runs on a trusted internal network; the known-proxy lists can't be enumerated there.
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 var app = builder.Build();
 
 // ---------- Pipeline ----------
+app.UseForwardedHeaders();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseSerilogRequestLogging();

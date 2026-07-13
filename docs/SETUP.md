@@ -68,6 +68,24 @@ project manager (`pm@demo.local`), five reviewers (`reviewer1..5@demo.local`), a
 60 already-processed Persian/English records (50 assigned, 6 approved) so every screen is populated
 without a live provider. Password for all demo accounts: `Demo!Passw0rd`.
 
+## 6b. Forgot the admin password?
+
+There is no email-based reset (by design). If you are locked out of the admin account, use the
+break-glass reset: set an env var and restart.
+
+- **Docker / CapRover:** add `RESET_ADMIN_PASSWORD=<new-strong-password>` (optionally
+  `RESET_ADMIN_EMAIL=<the-admin-email>`) to the app's environment, redeploy/restart, sign in,
+  set a new password, then **remove the variable and restart**.
+- **Local (no Docker):**
+  ```bash
+  RESET_ADMIN_EMAIL=admin@local.dev RESET_ADMIN_PASSWORD='NewStrong!Passw0rd' \
+    dotnet run --project src/Structura.Web --no-launch-profile
+  ```
+  Then stop, run normally, and sign in. A password change is forced at first sign-in.
+
+Without `RESET_ADMIN_EMAIL`, the oldest administrator account is reset. The password must be at
+least 10 characters. Leaving the variable set re-resets on every start — remove it once you're in.
+
 ## 7. Backup & restore
 
 ```bash

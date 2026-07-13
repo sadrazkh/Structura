@@ -28,6 +28,21 @@ docker compose -f docker/docker-compose.yml up -d --build
 
 Open `https://localhost` (accept the local self-signed certificate), sign in with `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD`, and set a new password when prompted.
 
+## Quick start (no Docker — single process)
+
+The whole MVP runs as **one process** serving the API and the built SPA on
+`http://localhost:8080`, backed by a local PostgreSQL (auto-created under your home dir).
+Requires the .NET 10 SDK, Node 20+, and PostgreSQL installed locally.
+
+```bash
+pwsh scripts/run-local.ps1 -Seed     # Windows
+./scripts/run-local.sh               # macOS/Linux  (SEED=1 for demo data)
+```
+
+Then open `http://localhost:8080`, sign in as `admin@local.dev` / `Admin!Passw0rd`.
+With `-Seed`/`SEED=1`, demo accounts `pm@demo.local` and `reviewer1..5@demo.local`
+(password `Demo!Passw0rd`) come preloaded with a project and 60 processed records.
+
 ## Development
 
 Requirements: .NET 10 SDK, Node 20+, Docker (for the dev database and tests).

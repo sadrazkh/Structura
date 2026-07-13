@@ -256,7 +256,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         v-if="!readOnly"
         class="fixed inset-x-0 bottom-0 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur"
       >
-        <div class="mx-auto flex max-w-3xl items-center gap-2">
+        <div class="mx-auto flex max-w-3xl flex-wrap items-center gap-2">
           <BaseButton variant="secondary" :disabled="busy || !dirty" @click="save">Save</BaseButton>
           <BaseButton variant="ghost" class="text-warning" :disabled="busy" @click="noteDialog = 'reprocess'">
             ↺ Reprocess
@@ -264,9 +264,10 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           <BaseButton variant="ghost" class="text-danger" :disabled="busy" @click="noteDialog = 'reject'">
             ✕ Reject
           </BaseButton>
-          <div class="ml-auto flex items-center gap-2">
+          <!-- On phones Next + Approve wrap to their own full-width row; Approve stays prominent. -->
+          <div class="ml-auto flex w-full items-center justify-end gap-2 sm:w-auto">
             <BaseButton variant="secondary" :disabled="busy" @click="goNext">Next →</BaseButton>
-            <BaseButton :loading="busy" @click="decide('approve')">✓ Approve</BaseButton>
+            <BaseButton class="flex-1 sm:flex-none" :loading="busy" @click="decide('approve')">✓ Approve</BaseButton>
           </div>
         </div>
       </div>
